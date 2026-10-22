@@ -1,0 +1,14 @@
+{
+  "name": "EaseIn — New beginnings. Your pace.",
+  "short_name": "EaseIn",
+  "description": "A proactive wellbeing companion for university students.",
+  "start_url": "./easein-demo.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF9F6",
+  "theme_color": "#315E56",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

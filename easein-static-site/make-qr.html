@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EaseIn · QR maker</title>
+<style>
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:#FAF9F6;color:#27352F;margin:0;padding:32px;display:flex;flex-direction:column;align-items:center;gap:16px}
+h1{font-size:22px;color:#315E56}
+input{width:min(520px,92vw);padding:13px 15px;border:1.5px solid #E4EBE6;border-radius:12px;font-size:15px;font-family:inherit}
+button{background:#315E56;color:#fff;border:none;padding:12px 20px;border-radius:12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:14px}
+.card{background:#fff;padding:24px;border-radius:20px;box-shadow:0 10px 30px rgba(49,94,86,.12);text-align:center}
+canvas{image-rendering:pixelated;border-radius:8px}
+p.hint{font-size:13px;color:#718078;max-width:520px;text-align:center;line-height:1.6}
+a.dl{font-size:13px;color:#315E56;font-weight:700}
+</style>
+</head>
+<body>
+<h1>EaseIn · QR code maker</h1>
+<p class="hint">Paste the live URL of your hosted demo, press Generate, then right-click the QR to save it (or use the Download button). Use this for slides and posters. The app also has a built-in QR under Presenter Controls → Share / QR.</p>
+<input id="url" placeholder="https://your-user.github.io/easein-demo/" value="">
+<button onclick="gen()">Generate QR</button>
+<div class="card" id="card" style="display:none">
+  <canvas id="cv"></canvas>
+  <div style="margin-top:12px"><a class="dl" id="dl" download="easein-qr.png">⬇ Download PNG</a></div>
+  <p class="hint" id="decoded" style="margin-top:8px"></p>
+</div>
+<script>
+/* ---- same verified QR encoder as the app (byte mode, EC M, mask 0) ---- */
+const QR_EC=[[],[16,1,[16]],[28,1,[28]],[44,1,[44]],[64,2,[32,32]],[86,2,[43,43]],[108,4,[27,27,27,27]],[124,4,[31,31,31,31]],[154,4,[38,38,39,39]],[182,5,[36,36,36,37,37]],[216,5,[43,43,43,43,44]]];
+const QR_TOTAL=[0,26,44,70,100,134,172,196,242,292,346];
+const QR_ALIGN=[[],[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+function qrMatrix(text){
+  const bytes=new TextEncoder().encode(text);
+  let v=1;while(v<=10&&bytes.length>QR_EC[v][0]-(v<10?2:3))v++;
+  if(v>10)throw new Error('URL too long for this simple generator (max ~210 chars). Shorten it.');
+  const [dataCw,blocks,sizes]=QR_EC[v];
+  const gf={e:[],l:{}};let x=1;
+  for(let i=0;i<255;i++){gf.e[i]=x;gf.l[x]=i;x<<=1;if(x&0x100)x^=0x11D}
+  const mul=(a,b)=>a&&b?gf.e[(gf.l[a]+gf.l[b])%255]:0;
+  const gpoly=nn=>{let p=[1];for(let i=0;i<nn;i++){const q=[1,gf.e[i]];const r=new Array(p.length+1).fill(0);
+    for(let a=0;a<p.length;a++)for(let b=0;b<q.length;b++)r[a+b]^=mul(p[a],q[b]);p=r}return p};
+  let bits='0100'+(v<10?bytes.length.toString(2).padStart(8,'0'):bytes.length.toString(2).padStart(16,'0'));
+  bytes.forEach(b=>bits+=b.toString(2).padStart(8,'0'));
+  bits+='0000';while(bits.length%8)bits+='0';
+  const pads=['11101100','00010001'];let pi=0;
+  while(bits.length<dataCw*8){bits+=pads[pi++%2]}
+  const data=[];for(let i=0;i<bits.length;i+=8)data.push(parseInt(bits.slice(i,i+8),2));
+  const ecPer=(QR_TOTAL[v]-dataCw)/blocks;
+  const gen=gpoly(ecPer);let all=[];
+  sizes.forEach(sz=>{const blk=data.splice(0,sz);const msg=[...blk,...new Array(ecPer).fill(0)];
+    for(let i=0;i<sz;i++){const c=msg[i];if(c){for(let j=0;j<gen.length;j++)msg[i+j]^=mul(gen[j],c)}}
+    all.push({d:blk,e:msg.slice(sz)})});
+  const maxD=Math.max(...sizes),final=[];
+  for(let i=0;i<maxD;i++)all.forEach(b=>{if(b.d[i]!=null)final.push(b.d[i])});
+  for(let i=0;i<ecPer;i++)all.forEach(b=>final.push(b.e[i]));
+  const n=17+v*4,M=Array.from({length:n},()=>Array(n).fill(null));
+  const finder=(r,c)=>{for(let y=-1;y<8;y++)for(let x=-1;x<8;x++){const yy=r+y,xx=c+x;
+    if(yy<0||xx<0||yy>=n||xx>=n)continue;
+    M[yy][xx]=(x>=0&&x<7&&y>=0&&y<7&&(x===0||x===6||y===0||y===6||(x>1&&x<5&&y>1&&y<5)))?1:0}};
+  finder(0,0);finder(0,n-7);finder(n-7,0);
+  for(let i=8;i<n-8;i++){M[6][i]=i%2?0:1;M[i][6]=i%2?0:1}
+  const al=QR_ALIGN[v]||[];
+  al.forEach(r=>al.forEach(c=>{
+    if((r===6&&c===6)||(r===6&&c===n-7)||(r===n-7&&c===6))return;
+    for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++)M[r+y][c+x]=Math.max(Math.abs(x),Math.abs(y))!==1?1:0}));
+  M[n-8][8]=1;
+  const fmt='010010000010101';
+  for(let i=0;i<15;i++){const b=+fmt[i];let r1,c1,r2,c2;
+    if(i<6){r1=i;c1=8}else if(i<8){r1=i+1;c1=8}else if(i===8){r1=8;c1=7}else{r1=8;c1=14-i}
+    if(i<8){r2=8;c2=n-1-i}else{r2=n-15+i;c2=8}
+    M[r1][c1]=b;M[r2][c2]=b}
+  let idx=0,dir=-1,row=n-1;
+  for(let col=n-1;col>0;col-=2){if(col===6)col--;
+    for(let kk=0;kk<n;kk++){const r=row+dir*kk;
+      for(let dc=0;dc<2;dc++){const c=col-dc;if(M[r][c]!==null)continue;
+        let bit=idx<final.length*8?(final[idx>>3]>>(7-(idx&7)))&1:0;idx++;
+        if((r+c)%2===0)bit^=1;M[r][c]=bit}}
+    row=row+dir*(n-1);dir=-dir}
+  return M.map(r=>r.map(c=>c===1));
+}
+function gen(){
+  const url=document.getElementById('url').value.trim();
+  if(!url){alert('Paste your hosted URL first.');return}
+  let M;try{M=qrMatrix(url)}catch(e){alert(e.message);return}
+  const n=M.length,scale=10,q=4,size=(n+q*2)*scale;
+  const cv=document.getElementById('cv');cv.width=size;cv.height=size;
+  const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);ctx.fillStyle='#1E2B26';
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(M[y][x])ctx.fillRect((x+q)*scale,(y+q)*scale,scale,scale);
+  document.getElementById('card').style.display='block';
+  document.getElementById('dl').href=cv.toDataURL('image/png');
+  document.getElementById('decoded').textContent='Encodes: '+url;
+}
+</script>
+</body>
+</html>
