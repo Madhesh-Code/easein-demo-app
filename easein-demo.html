@@ -2751,5 +2751,820 @@ function confirmReset(){
    <button type="button" class="btn dgr blk" onclick="resetDemo()">Yes, reset everything</button>
    <button type="button" class="btn gho blk" onclick="openProfile()">Cancel</button>`,{dismiss:'explicit'});
 }
+
+/* ============================ FLOW: WELCOME ============================ */
+function renderFlow(){
+  const w=document.getElementById('welcomelyr'),o=document.getElementById('onblyr');
+  w.classList.remove('show');o.classList.remove('show');
+  if(S.flow==='welcome'){renderWelcome();w.classList.add('show')}
+  else if(S.flow==='onboard'){o.classList.add('show')}
+  else{renderAll();go(S.activeMode==='volunteer'?'vol':'home')}
+}
+function renderWelcome(){
+  document.getElementById('welcomelyr').innerHTML=`<div class="wel-pad" style="position:relative">
+   <div style="position:absolute;inset:0;background-image:var(--img-affirm-grad);background-size:cover;background-position:center;opacity:.14;pointer-events:none;z-index:0"></div>
+   <div class="rise" style="margin-top:18px;position:relative;z-index:1">
+     <p style="font-size:12px;font-weight:800;letter-spacing:2.5px;color:var(--teal);text-transform:uppercase">EaseIn</p>
+     <h1 class="display" style="font-size:40px;margin-top:10px">New beginnings.<br><em>Your pace.</em></h1>
+     <p style="font-size:14px;color:var(--slate);margin-top:16px;line-height:1.7;max-width:290px">Whether you're looking for support or hoping to help someone else, there's a place for you here.</p>
+   </div>
+   <h2 class="display2 rise2" style="margin-top:30px;margin-bottom:6px">How would you like to begin?</h2>
+   <p class="rise2" style="font-size:12px;color:var(--slate);margin-bottom:14px">Choose the experience that fits you — you can switch anytime.</p>
+   <button class="modecard glass rise3" style="background:linear-gradient(150deg,#E4F0E9,#CFE5DA 55%,#A8CBBD)" onclick="chooseMode('seek')">
+     <div class="heroart"><i class="glowblob hb1"></i><i class="glowblob hb3" style="opacity:.35"></i></div>
+     <div class="rowline" style="position:relative;z-index:2;margin-bottom:12px">
+       <div class="micon" style="background:rgba(255,255,255,.85);margin-bottom:0">${ic('heart','width="24" height="24" style="stroke:var(--teal)"')}</div>
+       <div class="spacer"></div>
+       <span style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;background:rgba(49,94,86,.14);color:var(--teal);padding:6px 11px;border-radius:999px">User mode</span>
+     </div>
+     <h3 style="color:var(--teal)">I'm a student seeking support</h3>
+     <p style="color:#3E5A52">Find personalised wellbeing tools, connect with supportive peers and discover professional help whenever you need it.</p>
+     <span class="go" style="color:var(--teal)">Enter as a user ${ic('chev','width="14" height="14" style="stroke:var(--teal)"')}</span>
+   </button>
+   <button class="modecard glass rise4" style="background:linear-gradient(150deg,#ECE6F6,#D9CFEE 55%,#BBA9DF);margin-top:16px" onclick="chooseMode('volunteer')">
+     <div class="heroart"><i class="glowblob hb2" style="opacity:.5"></i><i class="glowblob hb1" style="opacity:.4;top:auto;bottom:-30px"></i></div>
+     <div class="rowline" style="position:relative;z-index:2;margin-bottom:12px">
+       <div class="micon" style="background:rgba(255,255,255,.85);margin-bottom:0">${ic('users','width="24" height="24" style="stroke:#5A4A86"')}</div>
+       <div class="spacer"></div>
+       <span style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;background:rgba(90,74,134,.16);color:#4A3E6E;padding:6px 11px;border-radius:999px">Volunteer mode</span>
+     </div>
+     <h3 style="color:#4A3E6E">I want to help as a volunteer</h3>
+     <p style="color:#55487A">Become a peer volunteer, build meaningful connections and make a difference in another student's university journey.</p>
+     <span class="go" style="color:#4A3E6E">Enter as a volunteer ${ic('chev','width="14" height="14" style="stroke:#4A3E6E"')}</span>
+   </button>
+   <p class="rise4" style="font-size:10.5px;color:var(--slate);text-align:center;margin-top:24px;padding-top:6px">Demo prototype · all data fictional · no login needed</p>
+  </div>`;
+}
+function chooseMode(m){
+  S.activeMode=m;save();
+  if(m==='seek'&&!S.seek.onboarded){S.flow='onboard';startUserOnb()}
+  else if(m==='volunteer'&&!S.vol.onboarded){S.flow='onboard';startVolOnb()}
+  else S.flow='app';
+  save();renderFlow();
+}
+function backToWelcome(){S.flow='welcome';save();renderFlow()}
+
+/* ============================ USER ONBOARDING ============================ */
+const CHALS=['Adjusting to a new environment','Feeling intimidated by high-achieving peers','Fear of being judged','Feeling nervous during tutorials','Presentations and public speaking','Difficulty making friends','Feeling isolated or left out','Academic workload','Not knowing where to seek help','Feeling uncomfortable asking for help','Uncertainty about the future','Other'];
+const SUPPREFS=['Anonymous peer conversations','One-to-one peer buddy','Professional counselling','Self-guided coping exercises','AI-assisted reflection','Small-group social activities','Campus wellbeing events','Not sure yet'];
+const BARRIERS=['I don\u2019t know whom to approach','I\u2019m afraid of being judged','I don\u2019t want to burden others','I feel embarrassed','I\u2019m unsure whether my problems are serious enough','I\u2019m too busy','I prefer privacy','Other'];
+const COPING=['Guided breathing','Grounding techniques','Short walks','Talking to friends','Journaling','Listening to calming music','Preparing ahead of time','Professional counselling','I\u2019m still figuring it out'];
+const GOALS=['Feel more confident in tutorials','Make new friends','Feel more comfortable asking for help','Participate in university events','Manage academic stress','Improve emotional wellbeing','Build healthier routines','Explore professional support'];
+let onb=null;
+function onbHead(title,sub,step,total,back){
+  return `<div class="rowline" style="padding-top:6px">
+    ${back?`<button class="iconbtn" style="width:34px;height:34px" onclick="${back}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#27352F" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>`:'<span style="width:34px"></span>'}
+    <div class="spacer"></div><span class="tag2">${step} / ${total}</span></div>
+   <div class="prog" style="margin:14px 0 20px"><i style="width:${step/total*100}%"></i></div>
+   <h2 class="display2 blurin">${title}</h2>
+   ${sub?`<p style="font-size:13px;color:var(--slate);margin-top:8px;line-height:1.65;max-width:300px">${sub}</p>`:''}`;
+}
+function multiOpts(arr,key,cls){
+  const cur=onb.data[key];
+  return arr.map(o=>`<button class="optcard ${cls||''} ${cur.includes(o)?'on':''}" onclick="onbToggle('${key}','${o.replace(/'/g,"\\'")}',this)">
+   <div class="tick">${cur.includes(o)?'✓':''}</div><span>${o}</span></button>`).join('');
+}
+function onbToggle(key,val,btn){
+  const a=onb.data[key];const i=a.indexOf(val);
+  if(i>=0)a.splice(i,1);else a.push(val);
+  btn.classList.toggle('on',i<0);btn.querySelector('.tick').textContent=i<0?'✓':'';
+}
+function onbFoot(next,label){
+  return `<div class="onb-foot"><button class="btn pri blk" style="padding:15px" onclick="${next}">${label||'Continue'}</button></div>`;
+}
+function startUserOnb(){
+  const s=S.seek;
+  onb={mode:'seek',step:0,data:{name:s.onboarded?s.name:'',uni:s.uni,course:s.course,year:s.year,challenges:[...s.challenges],adjustDiff:s.adjustDiff,
+   supportPrefs:[...s.supportPrefs],barriers:[...s.barriers],coping:[...s.coping],goals:[...s.goals]}};
+  userOnbRender();
+}
+function userOnbRender(){
+  const el=document.getElementById('onblyr');const d=onb.data;let h='';
+  if(onb.step===0)h=`<div class="onb-scroll" style="display:flex;flex-direction:column">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:left;padding-top:30px">
+    <p class="rise" style="font-size:12px;font-weight:800;letter-spacing:2px;color:var(--teal);text-transform:uppercase">Welcome</p>
+    <h1 class="display rise2" style="margin-top:12px">Hi there, welcome to <em>EaseIn</em></h1>
+    <p class="rise3" style="font-size:14px;color:var(--slate);margin-top:16px;line-height:1.7;max-width:300px">Starting university can feel exciting, unfamiliar and sometimes overwhelming. We're here to help you find your footing, one step at a time.</p>
+    <div class="rise4" style="margin-top:26px">
+      ${[['🌱','Prepare for new experiences'],['🌤️','Manage stress and self-doubt'],['🤝','Connect with people who care']].map(x=>
+       `<div class="rowline" style="gap:11px;margin-top:11px"><div style="width:38px;height:38px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 3px 10px rgba(39,53,47,.08)">${x[0]}</div><b style="font-size:13.5px">${x[1]}</b></div>`).join('')}
+    </div></div></div>${onbFoot('onb.step=1;userOnbRender()','Get started')}`;
+  else if(onb.step===1)h=`<div class="onb-scroll">${onbHead('About you','So we can personalise your space. Everything is editable later.',2,7,'onb.step=0;userOnbRender()')}
+    <div class="lbl">Preferred name</div><input type="text" id="onbName" value="${esc(d.name)}" placeholder="What should we call you?" oninput="onb.data.name=this.value">
+    <button class="btn gho sm" style="margin-top:8px" onclick="onb.data.name='Kai';userOnbRender()">Use demo name (Kai)</button>
+    <div class="lbl">University</div><div class="chips">${UNIS.map(u=>`<button class="chip ${d.uni===u?'on':''}" onclick="onb.data.uni='${u}';userOnbRender()">${u}</button>`).join('')}</div>
+    <div class="lbl">Course</div><input type="text" value="${esc(d.course)}" oninput="onb.data.course=this.value">
+    <div class="lbl">Year of study</div><div class="chips">${['Year 1','Year 2','Year 3','Year 4+'].map(y=>`<button class="chip ${d.year===y?'on':''}" onclick="onb.data.year='${y}';userOnbRender()">${y}</button>`).join('')}</div>
+    </div>${onbFoot("if(!onb.data.name||!onb.data.name.trim()){toast('🌱','What should we call you?','Enter a name, or tap Use demo name.','#FBF3E3')}else{onb.step=2;userOnbRender()}")}`;
+  else if(onb.step===2)h=`<div class="onb-scroll">${onbHead("What's been on your mind lately?","Everyone experiences university differently. Select anything you've been finding difficult — as many or as few as you like.",3,7,'onb.step=1;userOnbRender()')}
+    ${multiOpts(CHALS,'challenges')}
+    <div class="lbl">How difficult has adjusting felt recently? · <span id="adjV">${d.adjustDiff}</span>/10</div>
+    <input type="range" min="1" max="10" value="${d.adjustDiff}" oninput="onb.data.adjustDiff=+this.value;document.getElementById('adjV').textContent=this.value">
+    <p style="font-size:10.5px;color:var(--slate);margin-top:6px">A personal reflection rating — not a diagnostic score.</p>
+    </div>${onbFoot('onb.step=3;userOnbRender()')}`;
+  else if(onb.step===3)h=`<div class="onb-scroll">${onbHead('How would you feel most comfortable receiving support?','Pick anything that feels right. You can change your mind anytime.',4,7,'onb.step=2;userOnbRender()')}
+    ${multiOpts(SUPPREFS,'supportPrefs')}
+    <div class="lbl">What makes reaching out for help difficult?</div>
+    ${multiOpts(BARRIERS,'barriers')}
+    </div>${onbFoot('onb.step=4;userOnbRender()')}`;
+  else if(onb.step===4)h=`<div class="onb-scroll">${onbHead('What usually helps you feel better?','',5,7,'onb.step=3;userOnbRender()')}
+    ${multiOpts(COPING,'coping')}
+    </div>${onbFoot('onb.step=5;userOnbRender()')}`;
+  else if(onb.step===5)h=`<div class="onb-scroll">${onbHead('What would you like to work towards?','',6,7,'onb.step=4;userOnbRender()')}
+    ${multiOpts(GOALS,'goals')}
+    </div>${onbFoot('finishUserOnb()','See my summary')}`;
+  else if(onb.step===6){
+    const recs=recommend();
+    h=`<div class="onb-scroll" style="text-align:left">
+    <div style="text-align:center;padding-top:16px"><div style="font-size:44px" class="rise">🎉</div>
+    <h1 class="display rise2" style="margin-top:12px">You're all set, <em>${esc(d.name)}</em></h1>
+    <p class="rise3" style="font-size:13.5px;color:var(--slate);margin-top:10px;line-height:1.65">We've personalised your EaseIn experience based on what matters to you.</p></div>
+    <div class="card rise4" style="margin-top:20px"><div class="lbl" style="margin-top:0">Your main challenges</div>
+      <div class="chips">${d.challenges.slice(0,4).map(c=>`<span class="chip" style="cursor:default">${c}</span>`).join('')}</div>
+      <div class="lbl">Your preferred support</div><div class="chips">${d.supportPrefs.slice(0,3).map(c=>`<span class="chip" style="cursor:default">${c}</span>`).join('')}</div>
+      <div class="lbl">Your goals</div><div class="chips">${d.goals.slice(0,3).map(c=>`<span class="chip" style="cursor:default">${c}</span>`).join('')}</div></div>
+    <div class="lbl" style="margin-top:20px">Recommended starting points</div>
+    ${recs.slice(0,3).map((r,i)=>`<div class="recc rise" style="animation-delay:${.1+i*.07}s" onclick="${r.fn}"><div class="ric" style="background:${r.bg}">${r.icon}</div>
+      <div style="flex:1"><b>${r.t}</b><div class="why">${r.why}</div></div>${ic('chev','width="15" height="15" style="stroke:var(--slate)"')}</div>`).join('')}
+    </div>${onbFoot('enterDashboard()','Enter my dashboard')}`;
+  }
+  el.innerHTML=h;
+}
+function finishUserOnb(){
+  Object.assign(S.seek,{name:onb.data.name,uni:onb.data.uni,course:onb.data.course,year:onb.data.year,
+   challenges:[...onb.data.challenges],adjustDiff:onb.data.adjustDiff,supportPrefs:[...onb.data.supportPrefs],
+   barriers:[...onb.data.barriers],coping:[...onb.data.coping],goals:[...onb.data.goals],onboarded:true});
+  S.recDismissed=[];save();onb.step=6;userOnbRender();
+}
+function enterDashboard(){S.flow='app';save();renderFlow();setTimeout(()=>petSay('Welcome to your space, '+S.seek.name+'! I\u2019m '+S.pet.name+' — tap me anytime.'),700)}
+function retakeSurvey(){S.flow='onboard';save();startUserOnb();renderFlow()}
+
+/* ============================ RECOMMENDATION ENGINE ============================ */
+function recommend(){
+  const a=S.seek,R=[];
+  const has=(arr,...xs)=>xs.some(x=>arr.some(v=>v.toLowerCase().includes(x.toLowerCase())));
+  const add=(id,icon,bg,t,why,fn)=>{if(!S.recDismissed.includes(id)&&!R.some(r=>r.id===id))R.push({id,icon,bg,t,why,fn})};
+  if(has(a.challenges,'presentation','public speaking'))add('pres','🎤','#F0ECF8','Guided breathing + prep checklist','Recommended because you mentioned feeling nervous about presentations.',"openBreathing(2)");
+  if(has(a.challenges,'presentation','public speaking'))add('rehearse','🗣','#E9F3ED','Presentation rehearsal','Recommended because you mentioned presentations.',"openRehearsal()");
+  if(has(a.challenges,'high-achieving','comparison'))add('tc','💭','#F0ECF8','ThoughtCheck','Recommended because you mentioned peer comparison.',"startThoughtCheck('My classmates seem more capable')");
+  if(has(a.challenges,'high-achieving','comparison'))add('wins','🌱','#E9F3ED','My Wins','Recommended because you mentioned comparing yourself with others.',"go('explore')");
+  if(has(a.challenges,'isolated','lonely','friends','making friends'))add('buddy','🫶','#FBEDE6','Find a peer buddy','Recommended because you mentioned wanting connection.',"go('connect');setTimeout(buddyMatch,300)");
+  if(has(a.challenges,'isolated','lonely','friends','making friends'))add('acts','🎪','#FBEDE6','Campus activities','Recommended because you mentioned wanting to meet people.',"go('connect')");
+  if(has(a.challenges,'where to seek help','uncomfortable asking'))add('fms','🧭','#E9F3ED','Find My Support','Recommended because you mentioned being unsure where to start.',"openFindSupport()");
+  if(has(a.barriers,'judged','embarrassed','privacy','burden'))add('anon','🕊','#EDF1F6','Anonymous peer community','Recommended because you mentioned preferring privacy.',"go('connect')");
+  if(has(a.barriers,'whom to approach'))add('who','💬','#E9F3ED','Who can I talk to?','Recommended because you mentioned not knowing whom to approach.',"whoCanITalkTo()");
+  if(has(a.challenges,'new environment','unfamiliar'))add('sim','🎓','#E9F3ED','Tutorial simulator','Recommended because you mentioned unfamiliar environments.',"tutorialSim()");
+  if(has(a.challenges,'academic workload','workload'))add('calplan','📅','#E9F3ED','Smart calendar','Recommended because you mentioned academic pressure.',"go('explore','calendar')");
+  if(has(a.coping,'breathing'))add('breath','🫁','#E9F3ED','Guided breathing','Matches how you like to cope.',"openBreathing(2)");
+  if(has(a.coping,'grounding'))add('ground','🌿','#F0ECF8','5-4-3-2-1 grounding','Matches how you like to cope.',"openGrounding()");
+  if(has(a.goals,'comfortable asking for help','explore professional'))add('couns','💙','#EDF1F6','Explore counselling','Recommended because of your goals.',"go('support')");
+  add('steps','🎯','#FBEDE6','BraveSteps','Small steps towards your goals.',"go('explore')");
+  add('fms2','🧭','#E9F3ED','Find My Support','Not sure where to start? Answer 3 quick questions.',"openFindSupport()");
+  return R;
+}
+
+/* ============================ FIND MY SUPPORT ============================ */
+let fms={step:0,help:[],kind:'',where:''};
+const FMS_HELP=['Feeling anxious','Adjusting to university','Academic stress','Feeling lonely','Making friends','Fear of judgement','Personal difficulties','I\u2019m not sure'];
+const FMS_KIND=['Anonymous conversation','Peer companionship','Professional counselling','Self-guided tools','Campus activities','I need urgent support'];
+function openFindSupport(){
+  fms={step:0,help:[],kind:'',where:''};fmsRender();
+}
+function fmsRender(){
+  const dots=`<div class="stepdots">${[0,1,2].map(i=>`<i class="${i===fms.step?'on':''}"></i>`).join('')}</div>`;
+  let b='';
+  if(fms.step===0)b=`<h2 class="serif">What would you like help with?</h2><p class="lead">Pick anything — there's no wrong answer.</p>
+    <div class="chips">${FMS_HELP.map(o=>`<button class="chip ${fms.help.includes(o)?'on':''}" onclick="fms.help.includes('${o}')?fms.help.splice(fms.help.indexOf('${o}'),1):fms.help.push('${o}');fmsRender()">${o}</button>`).join('')}</div>
+    <button class="btn pri blk" onclick="fms.step=1;fmsRender()">Continue</button>`;
+  else if(fms.step===1)b=`<h2 class="serif">What kind of support feels comfortable right now?</h2>
+    <div class="chips">${FMS_KIND.map(o=>`<button class="chip ${fms.kind===o?'on':''}" onclick="fms.kind='${o}';fmsRender()">${o}</button>`).join('')}</div>
+    <button class="btn pri blk" onclick="if(fms.kind==='I need urgent support'){openSafetyNet()}else if(!fms.kind){toast('🌱','Pick one that feels closest','You can choose freely — nothing is locked in.','#FBF3E3')}else{fms.step=2;fmsRender()}">Continue</button>
+    <button class="btn gho blk" onclick="fms.step=0;fmsRender()">Back</button>
+    <button class="btn dgr blk" onclick="openSafetyNet()">I need urgent support now</button>`;
+  else if(fms.step===2)b=`<h2 class="serif">Online or in person?</h2>
+    <div class="chips">${['Online','In person','Either'].map(o=>`<button class="chip ${fms.where===o?'on':''}" onclick="fms.where='${o}';fmsRender()">${o}</button>`).join('')}</div>
+    <button class="btn pri blk" onclick="if(!fms.where){fms.where='Either'}S.fmsAnswers={help:[...fms.help],kind:fms.kind,where:fms.where};save();fmsResults()">Show my options</button>
+    <button class="btn gho blk" onclick="fms.step=1;fmsRender()">Back</button>`;
+  openSheet(`<div class="rowline"><span class="tag2">🧭 Find My Support</span><span class="spacer"></span>
+   <span style="font-size:10px;color:var(--slate)">Private · no diagnosis</span></div>${dots}${b}`);
+}
+function fmsResults(){
+  const h=fms.help,k=fms.kind,w=fms.where;
+  const has=(...xs)=>xs.some(x=>h.some(v=>v.toLowerCase().includes(x.toLowerCase())));
+  const opts=[];
+  const add=(n,icon,bg,t,d,fn,why)=>opts.push({n,icon,bg,t,d,fn,why});
+  if(has('lonely','friends','judgement','not sure')||k==='Peer companionship'||k==='Anonymous conversation')
+    add(1,'🫶','#FBEDE6','Peer Buddy','A trained student volunteer who can offer companionship and share their university experience.',"closeSheet();go('connect');setTimeout(buddyMatch,300)",'Matches your preference for '+(/anon/i.test(k)?'anonymous, peer-level conversation':'peer connection'));
+  if(has('anxious','academic','personal','judgement')||k==='Professional counselling')
+    add(2,'💙','#EDF1F6','University Counselling','Confidential professional support available through your university.',"closeSheet();go('support')",'A good fit when you want structured, professional guidance');
+  if(has('anxious','judgement','academic')||k==='Self-guided tools')
+    add(3,'💭','#F0ECF8','ThoughtCheck','Work through self-doubt and peer comparison with guided reflection — privately, at your pace.',"closeSheet();startThoughtCheck()",'Self-guided and private, based on what you picked');
+  if(has('lonely','friends','adjusting')||k==='Campus activities')
+    add(4,'🎪','#FBEDE6','Campus Community','Welcoming student activities and low-pressure ways to meet others.',"closeSheet();go('connect')",'Gentle social connection without pressure to talk');
+  if(k==='Anonymous conversation'||has('judgement'))
+    add(5,'🕊','#EDF1F6','Anonymous Peer Community','Share and read experiences without revealing your identity.',"closeSheet();go('connect')",'You mentioned fear of judgement — anonymity keeps it comfortable');
+  if(has('adjusting','academic','not sure'))
+    add(6,'🌱','#E9F3ED','Prepare & Practise Tools','Module previews, checklists and simulators for unfamiliar situations.',"closeSheet();go('explore')",'Helps unfamiliar academic moments feel more manageable');
+  if(!opts.length)add(1,'🧭','#E9F3ED','Who Can I Talk To?','Explore the full landscape of support options.',"closeSheet();whoCanITalkTo()",'A gentle place to start');
+  openSheet(`<div class="rowline"><span class="tag2">🧭 Your options</span><span class="spacer"></span><span class="simtag">Guidance, not diagnosis</span></div>
+   <h2 class="serif" style="margin-top:12px">Recommended support options</h2>
+   <p class="lead">Explore freely — you can try one, several, or none. Urgent support is always one tap away.</p>
+   ${opts.map(o=>`<div class="recc" style="cursor:pointer" onclick="${o.fn}">
+     <div class="ric" style="background:${o.bg};position:relative"><b style="position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--teal);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">${o.n}</b>${o.icon}</div>
+     <div style="flex:1"><b>${o.t}</b><p style="font-size:11.3px;color:var(--slate);margin-top:2px;line-height:1.45">${o.d}</p>
+     <div class="why">Why this: ${o.why}</div></div></div>`).join('')}
+   <button class="btn dgr blk" onclick="openSafetyNet()">🆘 I need urgent support</button>
+   <button class="btn gho blk" onclick="openFindSupport()">Start over</button>`);
+}
+
+/* ============================ WHO CAN I TALK TO ============================ */
+function whoCanITalkTo(){
+  openSheet(`<h2 class="serif">Who can I talk to?</h2>
+  <p class="lead">You don't need to already know which service you need. Here's the landscape.</p>
+  ${[['🫶','Peer volunteers','Trained students who listen and share experiences. Casual, low-pressure.',"closeSheet();go('connect');setTimeout(buddyMatch,300)",'#E9F3ED'],
+   ['💙','University counsellors','Confidential professional support through your university.',"closeSheet();go('support')",'#EDF1F6'],
+   ['🎪','Student welfare groups','Peer-led activities and community support.',"closeSheet();go('connect')",'#FBEDE6'],
+   ['🤝','Trusted friends','Someone you already know — we can help you start the conversation.',"closeSheet();openTrusted()",'#F0ECF8'],
+   ['🩺','Professional services','External licensed mental-health providers.',"closeSheet();go('support')",'#E9F3ED'],
+   ['🆘','Crisis support','Free, immediate, always available.',"closeSheet();openSafetyNet()",'#FDF0EE']].map(x=>
+   `<button class="bigbtn" onclick="${x[3]}"><div class="bi" style="background:${x[4]}">${x[0]}</div>
+    <div style="flex:1"><b>${x[1]}</b><span>${x[2]}</span></div>${ic('chev','width="15" height="15" style="stroke:var(--slate)"')}</button>`).join('')}`);
+}
+
+/* ============================ VOLUNTEER MODE ============================ */
+const VHELP=['Peer buddy support','Campus orientation','Social activities','Academic transition guidance','Student wellbeing events','Community outreach','JC & polytechnic awareness campaigns'];
+const VAVAIL=['Weekday mornings','Weekday afternoons','Weekday evenings','Weekends','Flexible'];
+const VHOURS=['Under 1 hour','1–2 hours','3–4 hours','Flexible / event-based'];
+const VMODULES=[
+ {t:'Active Listening',d:'Listen to understand, not to fix. Let silence do some of the work.',
+  q:['A friend shares they\u2019re anxious. Best first response?',['"Here\u2019s what you should do…"','"That sounds really tough — want to tell me more?"'],1]},
+ {t:'Supporting Without Judgement',d:'Respond to anxiety with curiosity and respect, never minimising.',
+  q:['Someone says "I\u2019m probably just being weak." You…',['Agree it might pass','Gently challenge the self-criticism and normalise struggle'],1]},
+ {t:'Confidentiality & Boundaries',d:'What\u2019s shared stays private; volunteers don\u2019t diagnose or treat.',
+  q:['Volunteers protect confidentiality because…',['It builds trust and keeps everyone safe','It\u2019s less paperwork'],0]},
+ {t:'Recognising When to Refer',d:'Friendly support has limits. Know the signs and the pathways.',
+  q:['When should you refer to professionals?',['Only in obvious crises','Whenever things feel beyond friendly peer support'],1]},
+ {t:'Volunteer Self-Care',d:'You can\u2019t pour from an empty cup. Pause anytime — that\u2019s strength, not failure.',
+  q:['Feeling overwhelmed as a volunteer? You should…',['Push through quietly','Pause and talk to the programme coordinator'],1]}];
+function startVolOnb(){
+  const v=S.vol;
+  onb={mode:'vol',step:0,data:{name:v.name,uni:v.uni,course:v.course,year:v.year,helpWith:[...v.helpWith],avail:[...v.avail],hours:v.hours}};
+  volOnbRender();
+}
+function volOnbRender(){
+  const el=document.getElementById('onblyr');const d=onb.data;let h='';
+  if(onb.step===0)h=`<div class="onb-scroll" style="display:flex;flex-direction:column">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding-top:30px">
+    <p class="rise" style="font-size:12px;font-weight:800;letter-spacing:2px;color:#5A4A86;text-transform:uppercase">Volunteer</p>
+    <h1 class="display rise2" style="margin-top:12px">A little support can make a <em>big difference</em></h1>
+    <p class="rise3" style="font-size:14px;color:var(--slate);margin-top:16px;line-height:1.7;max-width:300px">Join the EaseIn volunteer community and help fellow students feel supported, included and more confident as they navigate university life.</p>
+    <div class="rise4" style="margin-top:26px">
+     ${[['💛','Connect with students who need companionship'],['🎪','Join campus wellbeing initiatives'],['📚','Learn responsible peer-support skills']].map(x=>
+      `<div class="rowline" style="gap:11px;margin-top:11px"><div style="width:38px;height:38px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 3px 10px rgba(39,53,47,.08)">${x[0]}</div><b style="font-size:13.5px">${x[1]}</b></div>`).join('')}
+    </div></div></div>${onbFoot('onb.step=1;volOnbRender()','Become a volunteer')}`;
+  else if(onb.step===1)h=`<div class="onb-scroll">${onbHead('About you','',2,6,'onb.step=0;volOnbRender()')}
+    <div class="lbl">Preferred name</div><input type="text" value="${esc(d.name)}" oninput="onb.data.name=this.value">
+    <div class="lbl">University</div><div class="chips">${UNIS.map(u=>`<button class="chip ${d.uni===u?'on':''}" onclick="onb.data.uni='${u}';volOnbRender()">${u}</button>`).join('')}</div>
+    <div class="lbl">Course</div><input type="text" value="${esc(d.course)}" oninput="onb.data.course=this.value">
+    <div class="lbl">Year of study</div><div class="chips">${['Year 1','Year 2','Year 3','Year 4+'].map(y=>`<button class="chip ${d.year===y?'on':''}" onclick="onb.data.year='${y}';volOnbRender()">${y}</button>`).join('')}</div>
+    </div>${onbFoot('onb.step=2;volOnbRender()')}`;
+  else if(onb.step===2)h=`<div class="onb-scroll">${onbHead('How would you like to help?','Pick anything that energises you.',3,6,'onb.step=1;volOnbRender()')}
+    ${multiOpts(VHELP,'helpWith','lv')}
+    </div>${onbFoot('onb.step=3;volOnbRender()')}`;
+  else if(onb.step===3)h=`<div class="onb-scroll">${onbHead('Your availability','',4,6,'onb.step=2;volOnbRender()')}
+    <div class="lbl">When could you volunteer?</div>${multiOpts(VAVAIL,'avail','lv')}
+    <div class="lbl">Time per week</div><div class="chips">${VHOURS.map(x=>`<button class="chip ${d.hours===x?'on':''}" onclick="onb.data.hours='${x}';volOnbRender()">${x}</button>`).join('')}</div>
+    </div>${onbFoot('onb.step=4;volOnbRender()')}`;
+  else if(onb.step===4)h=`<div class="onb-scroll">${onbHead('Helping responsibly matters.','',5,6,'onb.step=3;volOnbRender()')}
+    <div class="card" style="background:var(--pale);border:none"><b style="font-size:12.5px">Volunteers provide</b>
+     <p style="font-size:12px;line-height:1.75;margin-top:5px">💛 Companionship & encouragement<br>👂 Active listening<br>🎓 Practical university guidance<br>🧭 Referrals to appropriate services</p></div>
+    <div class="card" style="background:#FDF0EE;border:none"><b style="font-size:12.5px">Volunteers do not provide</b>
+     <p style="font-size:12px;line-height:1.75;margin-top:5px">🚫 Medical diagnoses<br>🚫 Psychological treatment<br>🚫 Psychiatric consultations<br>🚫 Emergency crisis intervention</p></div>
+    <div class="lbl">Your training path</div>
+    ${VMODULES.map((m,i)=>`<div class="ckrow" style="cursor:default"><div class="ckbox ${S.vol.trainingDone.includes(i)?'done':''}">${S.vol.trainingDone.includes(i)?'✓':''}</div>
+     <span style="flex:1">Module ${i+1}: ${m.t}</span></div>`).join('')}
+    <p style="font-size:10.5px;color:var(--slate);margin-top:10px;line-height:1.5">In a real deployment, buddy matching requires completed training and university approval, with staff oversight and safeguarding.</p>
+    </div>${onbFoot('finishVolOnb()','See my profile')}`;
+  else if(onb.step===5)h=`<div class="onb-scroll">
+    <div style="text-align:center;padding-top:16px"><div style="font-size:44px" class="rise">💛</div>
+    <h1 class="display rise2" style="margin-top:12px">Thank you for stepping forward, <em>${esc(d.name)}</em></h1></div>
+    <div class="card rise3" style="margin-top:20px"><div class="lbl" style="margin-top:0">University</div><b style="font-size:13px">${d.uni} · ${esc(d.course)} · ${d.year}</b>
+     <div class="lbl">How you'd like to help</div><div class="chips">${d.helpWith.map(x=>`<span class="chip" style="cursor:default">${x}</span>`).join('')}</div>
+     <div class="lbl">Availability</div><b style="font-size:13px">${d.avail.join(', ')||'Flexible'} · ${d.hours}</b>
+     <div class="lbl">Training status</div><b style="font-size:13px">${S.vol.trainingDone.length}/${VMODULES.length} modules complete</b>
+     <div class="lbl">Suggested opportunities</div><p style="font-size:12.5px;line-height:1.7">• Campus orientation support<br>• Peer buddy programme (after training)<br>• Wellbeing awareness events</p></div>
+    </div>${onbFoot('enterVolDash()','Explore volunteer dashboard')}`;
+  el.innerHTML=h;
+}
+function finishVolOnb(){
+  Object.assign(S.vol,{name:onb.data.name,uni:onb.data.uni,course:onb.data.course,year:onb.data.year,
+   helpWith:[...onb.data.helpWith],avail:[...onb.data.avail],hours:onb.data.hours,onboarded:true});
+  save();onb.step=5;volOnbRender();
+}
+function enterVolDash(){S.flow='app';save();renderFlow()}
+function vheader(title,sub){
+  const unread=S.notifications.filter(n=>!n.read).length;
+  return `<div class="hdr">
+    <div class="avatar" style="background:linear-gradient(135deg,#B9A8DB,#5A4A86)" onclick="openProfile()">${esc((S.vol.name||'V')[0]||'V')}</div>
+    <div class="hi"><h2>${title}</h2><p>${sub||(S.vol.name?S.vol.name+' · ':'')+S.vol.uni+' · '+S.vol.year+' · Volunteer'}</p></div>
+    <button class="iconbtn" onclick="openNotifs()">${ic('bell')}${unread?`<span class="badge">${unread}</span>`:''}</button>
+    <button class="iconbtn" onclick="openProfile()">${ic('gear')}</button></div>`;
+}
+function renderVol(){
+  const el=document.getElementById('page-vol');
+  const done=S.vol.trainingDone.length;
+  const h=new Date().getHours();const greet=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+  el.innerHTML=vheader(esc(greetLine(greet))+'! 💛','Your time and kindness can make someone\u2019s journey easier')+
+  `<div class="media-card tilt rise" style="min-height:0"><div class="bgimg" style="background-image:var(--img-selfcare)"></div>
+    <div class="scrim" style="background:linear-gradient(150deg,rgba(74,62,110,.78),rgba(49,94,86,.7))"></div>
+    <div class="rowline"><b style="font-size:14px;color:#fff">My volunteer journey</b><span class="spacer"></span><span class="sticker lv" style="font-size:10px;padding:5px 11px;box-shadow:none;transform:none">${done}/${VMODULES.length} trained</span></div>
+    <div class="statrow3" style="margin-top:12px">
+      ${ring(done/VMODULES.length*100,'Modules',done,'#D9CFEE')}
+      ${ring(S.volMatch?100:0,'Matches',S.volMatch?1:0,'#F5C8B8')}
+      ${ring(Math.min(100,S.activities*12),'Contrib.',S.activities,'#C7E6D7')}</div>
+    <button class="btn" style="margin-top:12px;background:rgba(255,255,255,.9);color:#4A3E6E;width:100%" onclick="go('voltrain')">Continue training</button></div>
+  <div class="secttl"><h3>Peer buddy matching</h3></div>
+  <div class="card" style="margin-top:6px"><div class="rowline"><span class="tag2">De-identified request</span><span class="simtag">Demo</span></div>
+    <b style="font-size:13.5px;display:block;margin-top:9px">Year 1 Computing Student</b>
+    <p style="font-size:12px;color:var(--slate);margin-top:5px;line-height:1.6">"Looking for someone to talk to about adjusting to university and joining student activities."</p>
+    <p style="font-size:11px;margin-top:7px;color:var(--slate)">Prefers: online conversation · casual campus meetup · academic transition guidance</p>
+    <p style="font-size:10px;color:var(--slate);margin-top:7px">🔒 Diagnoses, journals, mood data and counselling history are never shared with volunteers.</p>
+    ${S.volMatch?`<button class="btn pri sm blk" onclick="volChat()">Open conversation with your buddy</button>
+     <button class="btn gho sm blk" onclick="S.volMatch=null;save();renderVol();toast('','Match paused','You can pause anytime to protect your own wellbeing.','#E9F3ED')">Pause this match</button>`
+    :`<button class="btn pri sm blk" onclick="volOffer()">Offer support</button>
+     <button class="btn gho sm blk" onclick="toast('ℹ️','After approval','Matching unlocks once training is complete and the university approves. (Demo)','#EDF1F6')">Learn more</button>`}</div>
+  <div class="secttl"><h3>Available opportunities</h3></div>
+  ${[['🧭','Campus orientation support','Welcome Week · guide new students around campus'],['🎪','Wellbeing awareness events','Help run stalls and activities'],['🤝','Beginner social activities','Co-host low-pressure meetups'],['📣','Pre-university outreach','JC & polytechnic awareness campaigns']].map((o,i)=>
+   `<div class="card tappable" style="margin-top:9px;display:flex;gap:12px;align-items:center" onclick="toast('💛','Interest noted','The student-org coordinator would follow up. (Demo)','#E9F3ED');S.activities++;save()">
+    <div style="font-size:22px">${o[0]}</div><div style="flex:1"><b style="font-size:13px">${o[1]}</b><p style="font-size:11px;color:var(--slate);margin-top:2px">${o[2]}</p></div>
+    ${ic('chev','width="15" height="15" style="stroke:var(--slate)"')}</div>`).join('')}
+  <div class="secttl"><h3>Campus community</h3></div>
+  <div class="card tappable" style="display:flex;gap:12px;align-items:center" onclick="go('connect')">
+   <div style="font-size:22px">🎪</div><div style="flex:1"><b style="font-size:13px">Student wellbeing events</b><p style="font-size:11px;color:var(--slate)">Collaborate with student organisations</p></div>${ic('chev','width="15" height="15" style="stroke:var(--slate)"')}</div>
+  <p style="font-size:10.5px;color:var(--slate);text-align:center;margin-top:20px;line-height:1.6">University staff oversee the volunteer programme. You can report concerns<br>or pause participation anytime — your wellbeing matters too.</p>`;
+}
+function volOffer(){
+  if(S.vol.trainingDone.length<3){
+    openSheet(`<div style="text-align:center"><div style="font-size:40px">📚</div>
+    <h2 class="serif" style="margin-top:10px">Almost there</h2>
+    <p class="lead" style="max-width:280px;margin:8px auto 0">In a real deployment, buddy matching needs at least 3 training modules plus university approval. You've done ${S.vol.trainingDone.length}/3. (Demo)</p>
+    <button class="btn pri blk" style="margin-top:16px" onclick="closeSheet();go('voltrain')">Continue training</button>
+    <button class="btn gho blk" onclick="closeSheet()">Later</button></div>`);return}
+  openSheet(`<div style="text-align:center"><div style="font-size:40px">💛</div>
+   <h2 class="serif" style="margin-top:10px">Interest sent!</h2>
+   <p class="lead" style="max-width:280px;margin:8px auto 0">The programme coordinator reviews every match before connecting volunteers. (Simulated approval…)</p></div>`);
+  setTimeout(()=>{
+    S.volMatch={msgs:[{me:false,t:'Hi Alex, thanks for volunteering. I\u2019m a bit nervous about uni life — glad to have someone to chat with.'}]};
+    S.notifications.unshift({id:uid(),cat:'Community',title:'You\u2019ve been matched! 💛',body:'A Year 1 student accepted your offer of support.',time:'Just now',read:false,go:'volmatch',icon:'💛',bg:'#FBEDE6'});
+    save();closeSheet();renderVol();
+    celebrate('It\u2019s a match! 💛','You\u2019re now connected with a Year 1 student. Remember: companionship and referral — never counselling.');
+  },1600);
+}
+function renderVolTrain(){
+  const el=document.getElementById('page-voltrain');
+  el.innerHTML=vheader('Volunteer training','Learn responsible peer-support skills')+`<div class="card glass"><div class="rowline"><b style="font-size:14px">Training progress</b><span class="spacer"></span>
+    <span class="pill ${S.vol.trainingDone.length>=VMODULES.length?'ok':'warn'}">${S.vol.trainingDone.length}/${VMODULES.length}</span></div>
+    <div class="prog"><i style="width:${S.vol.trainingDone.length/VMODULES.length*100}%"></i></div>
+    ${S.vol.trainingDone.length>=VMODULES.length?'<p style="font-size:12px;color:var(--teal);font-weight:700;margin-top:9px">🎓 All modules complete — eligible for buddy matching (pending university approval in real deployment).</p>':''}</div>`+
+  VMODULES.map((m,i)=>{const done=S.vol.trainingDone.includes(i);
+   return `<div class="card" style="margin-top:12px"><div class="rowline"><b style="font-size:13.5px">Module ${i+1}: ${m.t}</b><span class="spacer"></span>${done?'<span class="pill ok">Done ✓</span>':''}</div>
+    <p style="font-size:12px;color:var(--slate);margin-top:5px;line-height:1.6">${m.d}</p>
+    <button class="btn ${done?'sag':'lavb'} sm blk" onclick="volModule(${i})">${done?'Review module':'Start module'}</button></div>`}).join('')+
+  `<div class="card" style="background:var(--pale);border:none"><b style="font-size:12.5px">Confidentiality & referral guidelines</b>
+   <p style="font-size:11.5px;color:var(--slate);margin-top:5px;line-height:1.65">Never share what a student tells you. Never attempt diagnosis. If anything feels beyond friendly support, guide them to university counselling or the Safety Net — and tell the programme coordinator.</p></div>`;
+}
+function volModule(i){
+  const m=VMODULES[i];
+  openSheet(`<span class="tag2">📚 Module ${i+1}</span>
+   <h2 class="serif" style="margin-top:12px">${m.t}</h2>
+   <p class="lead" style="margin-top:8px;line-height:1.7">${m.d}</p>
+   <div class="hrline"></div>
+   <b style="font-size:13px">Quick knowledge check</b>
+   <p style="font-size:12.5px;margin-top:8px;line-height:1.55">${m.q[0]}</p>
+   ${m.q[1].map((o,x)=>`<button class="optcard" style="margin-top:8px" onclick="volQuiz(${i},${x},${m.q[2]},this)"><div class="tick"></div><span>${o}</span></button>`).join('')}`);
+}
+function volQuiz(i,x,correct,btn){
+  if(x===correct){
+    if(!S.vol.trainingDone.includes(i))S.vol.trainingDone.push(i);
+    S.activities++;save();closeSheet();renderVolTrain();
+    toast('✅','Module '+(i+1)+' complete','Nice work.','#E9F3ED');
+    setTimeout(()=>petCheer('cheer','You\u2019re learning how to support others responsibly!'),700);
+    if(S.vol.trainingDone.length===VMODULES.length)celebrate('Training complete! 🎓','You\u2019re ready for the buddy programme (pending approval in a real deployment).');
+  }else{
+    btn.style.borderColor='var(--red)';
+    toast('💡','Not quite','Think about what responsible peer support looks like, then try again.','#FBF3E3');
+  }
+}
+function renderVolMatch(){
+  const el=document.getElementById('page-volmatch');
+  el.innerHTML=vheader('Peer matches','Anonymised requests · coordinated by the university')+
+  (S.volMatch?`<div class="card" style="border-color:var(--sage)"><div class="rowline"><span class="tag2">Active match</span><span class="simtag">Demo</span></div>
+    <b style="font-size:14px;display:block;margin-top:9px">Year 1 Computing Student</b>
+    <p style="font-size:12px;color:var(--slate);margin-top:4px">Matched ${dLabel(todayStr())} · check-ins: ${S.volMatch.msgs.length} messages</p>
+    <button class="btn pri sm blk" onclick="volChat()">Open conversation</button>
+    <button class="btn sag sm blk" onclick="toast('🗓','Check-in scheduled','A gentle reminder was added. (Demo)','#E9F3ED')">Schedule check-in</button>
+    <button class="btn gho sm blk" onclick="S.volMatch=null;save();renderVolMatch();toast('','Match ended','Thanks for the support you gave.','#E9F3ED')">End match</button></div>`
+  :`<div class="empty" style="padding-top:50px"><div class="eic">💛</div><b>No active matches yet</b>
+    <p>Browse anonymised requests on your home dashboard and offer support once your training is underway.</p>
+    <button class="btn pri" style="margin-top:14px" onclick="go('vol')">View requests</button></div>`)+
+  `<div class="card" style="background:var(--pale);border:none;margin-top:16px"><b style="font-size:12.5px">Remember</b>
+   <p style="font-size:11.5px;color:var(--slate);margin-top:5px;line-height:1.65">You offer companionship, encouragement and guidance — never counselling. If a conversation raises concerns, refer to university counselling or the Safety Net, and loop in the coordinator.</p></div>`;
+}
+function volChat(){
+  const m=S.volMatch;if(!m){toast('','No active match','','#E9F3ED');return}
+  openSheet(`<div class="rowline"><div class="pav" style="width:38px;height:38px;border-radius:13px;background:#FBEDE6;display:flex;align-items:center;justify-content:center">🎓</div>
+   <div style="flex:1"><b style="font-size:14px">Year 1 student</b><p style="font-size:10px;color:var(--slate)">Simulated conversation · de-identified</p></div></div>
+   <div class="chatwrap" id="vChat" style="max-height:300px;overflow-y:auto">${m.msgs.map(x=>`<div class="bub ${x.me?'me':'them'}">${esc(x.t)}</div>`).join('')}</div>
+   <div class="chips">${['How was your week?','Want tips for tutorials?','Fancy a campus walk sometime?'].map(q=>`<button class="chip" onclick="vSend('${q.replace(/'/g,"\\'")}')">${q}</button>`).join('')}</div>
+   <div class="rowline" style="margin-top:10px"><input type="text" id="vIn" placeholder="Type a message…" style="flex:1" onkeydown="if(event.key==='Enter')vSend()">
+   <button class="btn pri sm" onclick="vSend()">Send</button></div>`);
+  setTimeout(()=>{const w=document.getElementById('vChat');if(w)w.scrollTop=w.scrollHeight},60);
+}
+function vSend(q){
+  const m=S.volMatch;const t=q||document.getElementById('vIn').value.trim();if(!t)return;
+  m.msgs.push({me:true,t});save();volChat();
+  setTimeout(()=>{
+    let r='Thanks for checking in — it honestly helps a lot.';
+    if(/week/i.test(t))r='Pretty overwhelming, not gonna lie. Tutorials scare me a bit. But talking like this helps.';
+    if(/tutorial/i.test(t))r='Yes please! Everyone else seems to get it instantly and I just freeze.';
+    if(/walk/i.test(t))r='I\u2019d actually like that. Maybe after my Thursday lab?';
+    S.volMatch.msgs.push({me:false,t:r});save();volChat();
+  },1300);
+}
+
+
+/* ============================ PET + DYNAMIC ISLAND ============================ */
+const PET_COLORS={
+  sage:['#C7E6D7','#8FB9A8','#315E56'],
+  lavender:['#E0D4F4','#B9A8DB','#5A4A86'],
+  peach:['#FBD9C8','#F0A986','#A25B3F'],
+  sky:['#C7E1F2','#8EBBDD','#38607F'],
+  rose:['#F6CFD9','#E39AAE','#9C415C'],
+  gold:['#F6E3B0','#E8C064','#8A6A1E']};
+const PET_TYPES=[
+  ['orb','Calm Orb','Breathes with you'],
+  ['sprout','Sprout Buddy','Grows with your progress'],
+  ['fox','Campus Fox','Playful & encouraging'],
+  ['cat','Study Cat','Cosy & steady'],
+  ['bird','Little Bird','Cheerful & light'],
+  ['star','Night Star','Glows at your side']];
+function petSVG(size,anim,typeOverride,colorOverride){
+  const type=typeOverride||S.pet.type;
+  const c=PET_COLORS[colorOverride||S.pet.color]||PET_COLORS.sage;
+  const g='pg'+Math.random().toString(36).slice(2,7);
+  const W=`<svg width="${size}" height="${size}" viewBox="0 0 48 48"`;
+  const grad=`<defs><radialGradient id="${g}" cx="36%" cy="30%"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></radialGradient></defs>`;
+  if(type==='orb')return `${W} class="${anim?'petorb':''}">${grad}
+    <circle class="${anim?'p-ring':''}" cx="24" cy="24" r="21" fill="none" stroke="${c[1]}" stroke-width="1" opacity=".4"/>
+    <circle cx="24" cy="24" r="16" fill="url(#${g})"/>
+    <circle class="${anim?'p-eye':''}" cx="19" cy="22" r="2.3" fill="${c[2]}"/><circle class="${anim?'p-eye':''}" cx="29" cy="22" r="2.3" fill="${c[2]}"/>
+    <path d="M19.5 29q4.5 3.5 9 0" stroke="${c[2]}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <circle class="${anim?'p-spark':''}" cx="12" cy="16" r="1.4" fill="${c[0]}"/><circle class="${anim?'p-spark2':''}" cx="37" cy="14" r="1.2" fill="${c[0]}"/></svg>`;
+  if(type==='sprout')return `${W} class="${anim?'petanim':''}">
+    <ellipse cx="24" cy="42" rx="11" ry="2.5" fill="${c[1]}" opacity=".25"/>
+    <path class="${anim?'p-ear':''}" d="M24 20q-1-9-9-10 0 9 9 10z" fill="${c[1]}"/>
+    <path class="${anim?'p-ear':''}" d="M24 20q1-9 9-10 0 9-9 10z" fill="${c[0]}"/>
+    <circle cx="24" cy="30" r="12.5" fill="url(#${g})"/>${grad}
+    <circle class="${anim?'p-eye':''}" cx="19.5" cy="29" r="2.1" fill="${c[2]}"/><circle class="${anim?'p-eye':''}" cx="28.5" cy="29" r="2.1" fill="${c[2]}"/>
+    <path d="M20 34.5q4 3 8 0" stroke="${c[2]}" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <circle cx="15.5" cy="33" r="2" fill="${c[1]}" opacity=".5"/><circle cx="32.5" cy="33" r="2" fill="${c[1]}" opacity=".5"/></svg>`;
+  if(type==='fox')return `${W} class="${anim?'pethop':''}">
+    <path class="${anim?'p-tail':''}" d="M35 32q10 2 9 11-7-2-9-6z" fill="${c[1]}"/>
+    <ellipse cx="24" cy="30" rx="12" ry="11" fill="url(#${g})"/>${grad}
+    <path d="M14 20l3-9 5 6z" fill="${c[1]}"/><path d="M34 20l-3-9-5 6z" fill="${c[1]}"/>
+    <path d="M16 20l2-5 3 4z" fill="${c[0]}"/><path d="M32 20l-2-5-3 4z" fill="${c[0]}"/>
+    <path d="M24 36l-6-4h12z" fill="#fff" opacity=".9"/>
+    <circle class="${anim?'p-eye':''}" cx="19" cy="28" r="2.2" fill="${c[2]}"/><circle class="${anim?'p-eye':''}" cx="29" cy="28" r="2.2" fill="${c[2]}"/>
+    <circle cx="24" cy="33" r="1.6" fill="${c[2]}"/></svg>`;
+  if(type==='cat')return `${W} class="${anim?'petanim':''}">
+    <path class="${anim?'p-tail':''}" d="M36 34q9 0 8-9-6 1-8 5z" fill="${c[1]}"/>
+    <path d="M14 18l1-7 6 5z" fill="${c[1]}"/><path d="M34 18l-1-7-6 5z" fill="${c[1]}"/>
+    <ellipse cx="24" cy="29" rx="12.5" ry="11.5" fill="url(#${g})"/>${grad}
+    <circle class="${anim?'p-eye':''}" cx="19" cy="28" r="2.4" fill="${c[2]}"/><circle class="${anim?'p-eye':''}" cx="29" cy="28" r="2.4" fill="${c[2]}"/>
+    <path d="M24 32v2" stroke="${c[2]}" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M24 34q-2.5 2-5 1M24 34q2.5 2 5 1" stroke="${c[2]}" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <path d="M8 28h7M8 31h7M33 28h7M33 31h7" stroke="${c[2]}" stroke-width=".8" opacity=".5" stroke-linecap="round"/></svg>`;
+  if(type==='bird')return `${W} class="${anim?'petfloat':''}">
+    <ellipse cx="24" cy="42" rx="9" ry="2" fill="${c[1]}" opacity=".2"/>
+    <path class="${anim?'p-ear':''}" d="M10 26q-7-2-6-7 6 1 7 5z" fill="${c[0]}"/>
+    <path class="${anim?'p-ear':''}" d="M38 26q7-2 6-7-6 1-7 5z" fill="${c[0]}"/>
+    <circle cx="24" cy="26" r="13" fill="url(#${g})"/>${grad}
+    <path d="M24 30l4 4-8 0z" fill="${c[2]}"/>
+    <circle class="${anim?'p-eye':''}" cx="19" cy="24" r="2.2" fill="${c[2]}"/><circle class="${anim?'p-eye':''}" cx="29" cy="24" r="2.2" fill="${c[2]}"/>
+    <path d="M24 34l2 6-4 0z" fill="${c[1]}"/>
+    <circle class="${anim?'p-spark':''}" cx="13" cy="15" r="1.3" fill="${c[0]}"/></svg>`;
+  /* star */
+  return `${W} class="${anim?'petfloat':''}">${grad}
+    <circle class="${anim?'p-ring':''}" cx="24" cy="24" r="20" fill="none" stroke="${c[1]}" stroke-width="1" opacity=".35"/>
+    <path class="${anim?'p-spin':''}" d="M24 7l4.5 11L40 20l-9 7.5L33.5 40 24 33l-9.5 7L17 27.5 8 20l11.5-2z" fill="url(#${g})"/>
+    <circle class="${anim?'p-eye':''}" cx="20.5" cy="23" r="1.9" fill="${c[2]}"/><circle class="${anim?'p-eye':''}" cx="27.5" cy="23" r="1.9" fill="${c[2]}"/>
+    <path d="M21 27.5q3 2.5 6 0" stroke="${c[2]}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <circle class="${anim?'p-spark2':''}" cx="38" cy="12" r="1.4" fill="${c[0]}"/><circle class="${anim?'p-spark3':''}" cx="10" cy="36" r="1.2" fill="${c[0]}"/></svg>`;
+}
+function islandRender(){
+  document.getElementById('petMini').innerHTML=petSVG(22,true);
+  document.getElementById('islandLabel').textContent=S.flow==='app'?S.pet.name:'EaseIn';
+}
+/* 6 interaction choices shown in a 3×2 grid when the sprite is tapped */
+const PET_ACTIONS=[
+  ['laugh','😄','Laugh'],['wave','👋','Wave'],['love','💗','Give love'],
+  ['play','🎉','Play'],['cheer','✨','Cheer up'],['rest','😴','Rest']];
+function islandTap(e){
+  const is=document.getElementById('island');
+  if(is.classList.contains('open')){islandClose();return}
+  is.classList.add('open');
+  renderIslandMenu();
+}
+function renderIslandMenu(){
+  const td=(PET_TYPES.find(t=>t[0]===S.pet.type)||PET_TYPES[0]);
+  document.getElementById('islandExpand').innerHTML=`
+   <div style="text-align:center"><span id="petStage" style="display:inline-block">${petSVG(56,true)}</span></div>
+   <h4 style="text-align:center" id="petName">${esc(S.pet.name)} · ${td[2].toLowerCase()}</h4>
+   <p id="petMsg" style="text-align:center">${esc(petThought())}</p>
+   <div class="petgrid">
+     ${PET_ACTIONS.map(a=>`<button class="petact" onclick="event.stopPropagation();petAct('${a[0]}',this)"><span class="pae">${a[1]}</span><span>${a[2]}</span></button>`).join('')}
+   </div>
+   <div class="iact" style="justify-content:center;margin-top:4px">
+     <button onclick="event.stopPropagation();openPetSheet()">Personalise</button>
+     <button onclick="event.stopPropagation();petNudge()">Nudge me later</button>
+   </div>`;
+}
+function islandClose(){const is=document.getElementById('island');is.classList.remove('open');is.classList.remove('react-laugh','react-wave','react-love','react-play','react-cheer','react-rest')}
+/* Play an expressive reaction on the sprite in the island */
+let petReactT=null;
+function petAct(kind,btn){
+  if(btn){const g=btn.parentNode;g.querySelectorAll('.petact').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel')}
+  const is=document.getElementById('island');
+  const stage=document.getElementById('petStage');
+  const msgEl=document.getElementById('petMsg');
+  if(!is||!stage)return;
+  // reset any in-flight reaction so rapid taps don't glitch
+  clearTimeout(petReactT);
+  ['react-laugh','react-wave','react-love','react-play','react-cheer','react-rest'].forEach(c=>is.classList.remove(c));
+  stage.querySelectorAll('.petfx').forEach(n=>n.remove());
+  void stage.offsetWidth; // force reflow to restart CSS animation
+  is.classList.add('react-'+kind);
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const msgs={laugh:'Hehe! 😄',wave:'Hello there! 👋',love:'Aww, I appreciate you 💗',play:'Wheee! 🎉',cheer:"You've got this! ✨",rest:'Resting… 😴 I\u2019ll be right here.'};
+  if(msgEl)msgEl.textContent=msgs[kind]||'';
+  // floating particles
+  if(!reduce){
+    const fx={laugh:['😆','😄','ha'],love:['💗','💖','💕'],play:['⭐','🎊','✨'],cheer:['✨','🌟','💫']}[kind];
+    if(fx){for(let i=0;i<3;i++){const s=document.createElement('span');s.className='petfx';s.textContent=fx[i%fx.length];
+      s.style.left=(34+i*14)+'%';s.style.animationDelay=(i*.14)+'s';stage.appendChild(s)}}
+  }
+  // auto-return to idle (rest stays until next interaction)
+  if(kind!=='rest'){
+    petReactT=setTimeout(()=>{is.classList.remove('react-'+kind);stage.querySelectorAll('.petfx').forEach(n=>n.remove());
+      if(msgEl)msgEl.textContent=petThought();if(btn)btn.classList.remove('sel')},reduce?400:1700);
+  }
+}
+function petThought(){
+  if(S.flow!=='app')return 'Welcome to EaseIn 🌱';
+  if(S.activeMode==='volunteer')return S.vol.trainingDone.length<VMODULES.length?'One more training module? You\u2019re doing great.':'You\u2019re making a real difference'+(S.vol.name?', '+esc(S.vol.name):'')+'.';
+  const today=S.checkIns.find(c=>c.date===todayStr());
+  if(!today)return 'No check-in yet today — no pressure, I\u2019m here when you\u2019re ready.';
+  if(S.breaths.length&&Math.random()>.5)return 'Your last breathing session went nicely. Another one before bed?';
+  return 'Small steps'+(seekName()?', '+esc(seekName()):'')+'. I noticed how far you\u2019ve come.';
+}
+function petSay(msg){
+  const is=document.getElementById('island');
+  is.classList.add('open');
+  document.getElementById('islandExpand').innerHTML=`<div style="text-align:center">${petSVG(58,true)}</div>
+   <p style="text-align:center;font-size:11.5px;color:#EAF2ED;margin-top:6px;line-height:1.5">${esc(msg)}</p>
+   <div class="iact" style="justify-content:center"><button onclick="event.stopPropagation();islandClose()">Thanks, ${esc(S.pet.name)}</button></div>`;
+  setTimeout(()=>{if(document.querySelector('#island.open'))islandClose()},6500);
+}
+function petNudge(){
+  islandClose();
+  setTimeout(()=>petSay('Gentle nudge 🌙 — a 2-minute breathing break might feel nice right now.'),45000);
+  toast('🐾',S.pet.name+' will nudge you','A gentle reminder is on its way. (Demo)','#E9F3ED');
+}
+/* Sprite reacts to a wellbeing moment: opens the island, plays a reaction + message briefly. */
+function petCheer(kind,msg){
+  if(S.flow!=='app')return;
+  const is=document.getElementById('island');if(!is)return;
+  is.classList.add('open');
+  const td=(PET_TYPES.find(t=>t[0]===S.pet.type)||PET_TYPES[0]);
+  document.getElementById('islandExpand').innerHTML=`
+   <div style="text-align:center"><span id="petStage" style="display:inline-block">${petSVG(56,true)}</span></div>
+   <h4 style="text-align:center">${esc(S.pet.name)}</h4>
+   <p id="petMsg" style="text-align:center">${esc(msg)}</p>
+   <div class="iact" style="justify-content:center"><button onclick="event.stopPropagation();islandClose()">Thanks ${esc(S.pet.name)} 💛</button></div>`;
+  petAct(kind||'cheer');
+  clearTimeout(window._petCheerT);
+  window._petCheerT=setTimeout(()=>{if(document.querySelector('#island.open'))islandClose()},5200);
+}
+function openPetSheet(){
+  islandClose();
+  openSheet(`<div class="rowline"><span class="tag2">🐾 Your companion</span><span class="simtag">In-app companion</span></div>
+   <h2 class="serif" style="margin-top:10px">Personalise ${esc(S.pet.name)}</h2>
+   <p class="lead">Your companion lives in the island at the top of your screen, keeps you company and offers gentle nudges — even between visits.</p>
+   <div style="text-align:center;margin:16px 0 6px">${petSVG(72,true)}</div>
+   <div class="lbl">Choose a companion</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:8px">
+   ${PET_TYPES.map(t=>`<button class="optcard" style="flex-direction:column;gap:5px;padding:12px 6px;margin:0;justify-content:center;text-align:center;${S.pet.type===t[0]?'on':''}" onclick="S.pet.type='${t[0]}';save();islandRender();openPetSheet()">
+     <span style="pointer-events:none">${petSVG(40,true,t[0])}</span><b style="font-size:10.8px;line-height:1.2">${t[1]}</b>
+     <span style="font-size:8.8px;color:var(--slate);font-weight:500;line-height:1.3">${t[2]}</span></button>`).join('')}</div>
+   <div class="lbl">Name</div><input type="text" value="${esc(S.pet.name)}" maxlength="14" oninput="S.pet.name=this.value||'Pip';save();islandRender()">
+   <div class="lbl">Colour</div>
+   <div class="chips">${Object.keys(PET_COLORS).map(c=>`<button class="chip ${S.pet.color===c?'on':''}" onclick="S.pet.color='${c}';save();islandRender();openPetSheet()" style="${S.pet.color===c?'background:'+PET_COLORS[c][1]+';border-color:'+PET_COLORS[c][1]+';color:#fff':''}">${c[0].toUpperCase()+c.slice(1)}</button>`).join('')}</div>
+   <button class="btn pri blk" onclick="closeSheet();islandRender();toast('🐾','Saved','${esc(S.pet.name)} feels right at home.','#E9F3ED')">Done</button>
+   <p style="font-size:10px;color:var(--slate);text-align:center;margin-top:10px">On a real phone, EaseIn\u2019s companion would appear via Live Activities & widgets. This demo simulates it in-app.</p>`);
+}
+
+/* ============================ ABOUT EASEIN ============================ */
+function openAbout(){
+  openSheet(`<h2 class="serif">About EaseIn</h2>
+  <p class="lead">You don't have to know exactly what help you need, or who to ask. EaseIn helps you take the first step.</p>
+  <button class="bigbtn" onclick="openPartnership()"><div class="bi" style="background:#E9F3ED">🏛</div><div><b>How EaseIn works</b><span>University–student partnership model</span></div></button>
+  <button class="bigbtn" onclick="openSustain()"><div class="bi" style="background:#F0ECF8">✨</div><div><b>Supporting students, sustaining the mission</b><span>Freemium & financial model</span></div></button>
+  <button class="bigbtn" onclick="openOutreach()"><div class="bi" style="background:#FBEDE6">🌱</div><div><b>Support starts before university</b><span>Early outreach & transition guide</span></div></button>
+  <p style="font-size:10px;color:var(--slate);text-align:center;margin-top:14px">All models shown are proposals, not existing university agreements.</p>`);
+}
+function openPartnership(){
+  openSheet(`<span class="tag2">Proposed partnership model</span>
+  <h2 class="serif" style="margin-top:10px">Built together. Supported together.</h2>
+  <p class="lead">EaseIn is designed as a collaborative wellbeing platform where universities and student communities create a more supportive campus together.</p>
+  <div class="diag">
+    <div class="diagrow"><div class="diagbox" style="background:#E9F3ED;color:var(--teal)">🏛 University oversight<br><span style="font-weight:500;font-size:10.3px">Professional services · counselling partnerships · safeguarding & training · clinical governance · data protection · funding · escalation procedures</span></div></div>
+    <div class="diagplus">+</div>
+    <div class="diagrow"><div class="diagbox" style="background:#F0ECF8;color:#5A4A86">🎓 Student community<br><span style="font-weight:500;font-size:10.3px">e.g. NTU Students\u2019 Union — coordinate volunteers · promote awareness · organise peer programmes · gather feedback · campus outreach</span></div></div>
+    <div class="diagplus">=</div>
+    <div class="diagrow"><div class="diagbox" style="background:#FBEDE6;color:#A25B3F">🌱 Sustainable peer-support ecosystem</div></div>
+  </div>
+  <p style="font-size:10.5px;color:var(--slate);margin-top:14px;line-height:1.6">The university retains responsibility for clinical governance, safeguarding and sensitive data. Student volunteers support non-clinical activities only — never unpaid clinical services.</p>
+  <button class="btn pri blk" onclick="openAbout()">Back to About</button>`);
+}
+function openSustain(){
+  openSheet(`<span class="tag2">Proposed financial model</span>
+  <h2 class="serif" style="margin-top:10px">Supporting students. Sustaining the mission.</h2>
+  <div class="rowline" style="margin-top:14px">
+   <div style="flex:1"><b style="font-size:13px">EaseIn Free</b><p style="font-size:10.8px;color:var(--slate);margin-top:5px;line-height:1.7">Onboarding · Find My Support · mood tracking · basic insights · breathing & grounding · ThoughtCheck · BraveSteps · community · volunteer matching · counselling directory · crisis resources</p></div>
+   <div style="width:1px;background:var(--line);align-self:stretch;margin:0 12px"></div>
+   <div style="flex:1"><b style="font-size:13px;color:#5A4A86">EaseIn Plus</b><p style="font-size:10.8px;color:var(--slate);margin-top:5px;line-height:1.7">Advanced AI reports · detailed trends · personalised planning · report customisation · extended consultations via licensed partners</p></div></div>
+  <p style="font-size:12px;margin-top:16px;line-height:1.6">Optional premium services help fund maintenance, development, moderation, training and outreach:</p>
+  <div class="diagflow">
+    <div class="fb" style="background:#E9F3ED;color:var(--teal)">Premium revenue</div><span class="fa">→</span>
+    <div class="fb" style="background:#F0ECF8;color:#5A4A86">Operating costs</div><span class="fa">→</span>
+    <div class="fb" style="background:#FBEDE6;color:#A25B3F">Continued improvements</div><span class="fa">→</span>
+    <div class="fb" style="background:#EDF1F6;color:#4A6A8A">Community outreach & charities</div>
+  </div>
+  <p style="font-size:11px;color:var(--slate);margin-top:14px;line-height:1.65">Costs may also be supported by participating universities, approved institutional partnerships and student volunteers in suitable non-clinical roles. Surplus funds could be reinvested into mental-health charities, student wellbeing programmes, volunteer training, JC/poly outreach and future improvements.</p>
+  <p style="font-size:10px;color:var(--slate);margin-top:10px">No prices or revenue figures are set — this is a proposed model. Essential support and crisis resources stay free, always.</p>
+  <button class="btn pri blk" onclick="openAbout()">Back to About</button>`);
+}
+const TRANSITION_ITEMS=['Learn what university teaching actually feels like','Know where to find support services on campus','Prepare for my first tutorial','Understand that comparison is normal','Plan how to meet new people','Save the Safety Net numbers'];
+function openOutreach(){
+  const tc=S.transitionChecklist;
+  openSheet(`<span class="tag2">Community outreach</span>
+  <h2 class="serif" style="margin-top:10px">Support should start before university.</h2>
+  <p class="lead">EaseIn reaches students before day one — at A-Level results releases, polytechnic graduations and university orientation — with booths, QR demos, workshops and peer buddy introductions.</p>
+  <div class="lbl">Proposed outreach activities</div>
+  <p style="font-size:12px;line-height:1.75">🎓 <b>A-Level results period</b> — wellbeing booths, QR intros, coping-tool demos<br>🏫 <b>Poly graduation period</b> — transition talks & peer-support campaigns<br>🎪 <b>University orientation</b> — onboarding sessions, buddy introductions, support directories</p>
+  <div class="hrline"></div>
+  <b style="font-size:13.5px">Preparing for university?</b>
+  <p style="font-size:11.5px;color:var(--slate);margin-top:4px">Try the interactive transition guide:</p>
+  ${TRANSITION_ITEMS.map((t,i)=>`<div class="ckrow ${tc[i]?'done':''}" onclick="S.transitionChecklist[${i}]=!S.transitionChecklist[${i}];save();openOutreach()">
+    <div class="ckbox ${tc[i]?'done':''}">${tc[i]?'✓':''}</div><span>${t}</span></div>`).join('')}
+  <div class="prog" style="margin-top:10px"><i style="width:${TRANSITION_ITEMS.filter((_,i)=>tc[i]).length/TRANSITION_ITEMS.length*100}%"></i></div>
+  <p style="font-size:11px;color:var(--slate);margin-top:10px;line-height:1.6">"By introducing support before students enter university, EaseIn aims to reduce uncertainty and help students recognise that seeking help is a normal and accessible part of university life."</p>
+  <button class="btn pri blk" onclick="openAbout()">Back to About</button>`);
+}
+
+/* QR encoder retained for the standalone make-qr.html tool (not surfaced in-app). */
+/* Compact QR generator — byte mode, EC level M, mask 0 */
+const QR_EC=[[],[16,1,[16]],[28,1,[28]],[44,1,[44]],[64,2,[32,32]],[86,2,[43,43]],[108,4,[27,27,27,27]],[124,4,[31,31,31,31]],[154,4,[38,38,39,39]],[182,5,[36,36,36,37,37]],[216,5,[43,43,43,43,44]]];
+const QR_TOTAL=[0,26,44,70,100,134,172,196,242,292,346];
+const QR_ALIGN=[[],[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+function qrMatrix(text){
+  const bytes=new TextEncoder().encode(text);
+  let v=1;while(v<=10&&bytes.length>QR_EC[v][0]-(v<10?2:3))v++;
+  if(v>10)throw new Error('URL too long');
+  const [dataCw,blocks,sizes]=QR_EC[v];
+  const gf={e:[],l:{}};let x=1;
+  for(let i=0;i<255;i++){gf.e[i]=x;gf.l[x]=i;x<<=1;if(x&0x100)x^=0x11D}
+  const mul=(a,b)=>a&&b?gf.e[(gf.l[a]+gf.l[b])%255]:0;
+  const gpoly=nn=>{let p=[1];for(let i=0;i<nn;i++){const q=[1,gf.e[i]];const r=new Array(p.length+1).fill(0);
+    for(let a=0;a<p.length;a++)for(let b=0;b<q.length;b++)r[a+b]^=mul(p[a],q[b]);p=r}return p};
+  /* bit stream */
+  let bits='0100'+(v<10?bytes.length.toString(2).padStart(8,'0'):bytes.length.toString(2).padStart(16,'0'));
+  bytes.forEach(b=>bits+=b.toString(2).padStart(8,'0'));
+  bits+='0000';while(bits.length%8)bits+='0';
+  const pads=['11101100','00010001'];let pi=0;
+  while(bits.length<dataCw*8){bits+=pads[pi++%2]}
+  const data=[];for(let i=0;i<bits.length;i+=8)data.push(parseInt(bits.slice(i,i+8),2));
+  /* blocks + RS error correction */
+  const ecPer=(QR_TOTAL[v]-dataCw)/blocks;
+  const gen=gpoly(ecPer);
+  let all=[];
+  sizes.forEach(sz=>{
+    const blk=data.splice(0,sz);
+    const msg=[...blk,...new Array(ecPer).fill(0)];
+    for(let i=0;i<sz;i++){const c=msg[i];if(c){for(let j=0;j<gen.length;j++)msg[i+j]^=mul(gen[j],c)}}
+    all.push({d:blk,e:msg.slice(sz)});
+  });
+  /* interleave */
+  const maxD=Math.max(...sizes),final=[];
+  for(let i=0;i<maxD;i++)all.forEach(b=>{if(b.d[i]!=null)final.push(b.d[i])});
+  for(let i=0;i<ecPer;i++)all.forEach(b=>final.push(b.e[i]));
+  /* matrix */
+  const n=17+v*4,M=Array.from({length:n},()=>Array(n).fill(null));
+  const finder=(r,c)=>{for(let y=-1;y<8;y++)for(let x=-1;x<8;x++){const yy=r+y,xx=c+x;
+    if(yy<0||xx<0||yy>=n||xx>=n)continue;
+    M[yy][xx]=(x>=0&&x<7&&y>=0&&y<7&&(x===0||x===6||y===0||y===6||(x>1&&x<5&&y>1&&y<5)))?1:0}};
+  finder(0,0);finder(0,n-7);finder(n-7,0);
+  for(let i=8;i<n-8;i++){M[6][i]=i%2?0:1;M[i][6]=i%2?0:1}
+  const al=QR_ALIGN[v]||[];
+  al.forEach(r=>al.forEach(c=>{
+    const isCorner=(r===al[0]&&c===al[0])||(r===al[0]&&c===al[al.length-1]&&al.length>1&&r===6)||(r===al[al.length-1]&&c===al[0]&&al.length>1&&c===6);
+    if((r===6&&c===6)||(r===6&&c===n-7)||(r===n-7&&c===6))return; /* overlaps finders */
+    for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++)M[r+y][c+x]=Math.max(Math.abs(x),Math.abs(y))!==1?1:0}));
+  M[n-8][8]=1; /* dark module */
+  /* format info: EC level M (00), mask 0 → 010010000010101 */
+  const fmt='010010000010101';
+  for(let i=0;i<15;i++){const b=+fmt[i];
+    let r1,c1,r2,c2;
+    if(i<6){r1=i;c1=8}else if(i<8){r1=i+1;c1=8}else if(i===8){r1=8;c1=7}else{r1=8;c1=14-i}
+    if(i<8){r2=8;c2=n-1-i}else{r2=n-15+i;c2=8}
+    M[r1][c1]=b;M[r2][c2]=b}
+  /* place data zigzag, mask 0: (r+c)%2===0 → flip */
+  let i=0,dir=-1,row=n-1;
+  for(let col=n-1;col>0;col-=2){
+    if(col===6)col--;
+    for(let k=0;k<n;k++){
+      const r=row+dir*k;
+      for(let dc=0;dc<2;dc++){
+        const c=col-dc;
+        if(M[r][c]!==null)continue;
+        let bit=i<final.length*8?(final[i>>3]>>(7-(i&7)))&1:0;i++;
+        if((r+c)%2===0)bit^=1;
+        M[r][c]=bit}}
+    row=row+dir*(n-1);dir=-dir;
+  }
+  return M.map(r=>r.map(c=>c===1));
+}
+
+
+function resetDemo(){
+  Tasks.cancelAll();
+  localStorage.removeItem(KEY);
+  S=seed();
+  save();
+  islandRender();
+  renderFlow();
+  toast('↺','Demo reset','Original fictional data restored.','sage');
+}
+
+/* Use the whole viewport on phones, including iPhone safe areas. */
+(function(){
+  const isPhone=/Android|iPhone|iPod/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&Math.min(screen.width,screen.height)<600);
+  if(isPhone||mqStandalone.matches)document.body.classList.add('fullbleed');
+})();
+applyMotionClasses();
+
+/* ============================ DEMO SCENARIOS ============================ */
+/* Presenter shortcuts explicitly load the labelled demo profile (Kai/Alex) so
+   scenarios stay coherent without going through full onboarding. */
+function applyDemoSeek(){if(!S.seek.name||!S.seek.name.trim())S.seek.name=DEMO_SEEK_NAME;S.seek.onboarded=true;S.activeMode='seek'}
+function applyDemoVol(){if(!S.vol.name||!S.vol.name.trim())S.vol.name=DEMO_VOL_NAME;S.vol.onboarded=true;S.activeMode='volunteer'}
+function demoScenario(k){
+  if(k==='mode'){backToWelcome()}
+  else if(k==='discovery'){
+    S.activeMode='seek';
+    if(!S.seek.onboarded){S.flow='onboard';startUserOnb();renderFlow();toast('🧭','Demo 2','Complete onboarding, then Find My Support opens.','#E9F3ED')}
+    else{S.flow='app';save();renderFlow();setTimeout(()=>openFindSupport(),500)}
+  }
+  else if(k==='coping'){
+    if(!S.seek.challenges.includes('Presentations and public speaking'))S.seek.challenges.push('Presentations and public speaking');
+    S.recDismissed=[];applyDemoSeek();S.flow='app';save();renderFlow();
+    setTimeout(()=>{toast('🫁','Demo 3','Dashboard now recommends breathing & prep — launching breathing.','#E9F3ED');setTimeout(()=>openBreathing(2),1400)},450);
+  }
+  else if(k==='insights'){applyDemoSeek();S.flow='app';save();renderFlow();go('insights');setTimeout(()=>toast('📊','Demo 4','Tap chart points, then Generate my weekly report.','#EDF1F6'),400)}
+  else if(k==='volunteer'){
+    S.activeMode='volunteer';
+    if(!S.vol.onboarded){S.flow='onboard';startVolOnb();renderFlow()}
+    else{S.flow='app';save();renderFlow()}
+  }
+  else if(k==='manage'){if(S.activeMode!=='volunteer')applyDemoSeek();S.flow='app';save();renderFlow();setTimeout(()=>openPartnership(),450)}
+  else if(k==='privacy'){applyDemoSeek();S.flow='app';save();renderFlow();go('support');setTimeout(()=>openPrivacy(),450)}
+  /* legacy keys */
+  else if(k==='anxious'){go('home');setTimeout(()=>{toast('🎤','Your presentation is coming up','Would you like to practise beforehand?','#F0ECF8',()=>openEvent('e3'));document.getElementById('calmFab').classList.add('pulse')},400)}
+  else if(k==='compare'){startThoughtCheck('My classmates seem more capable')}
+  else if(k==='distress'){go('home');setTimeout(()=>{openCheckin(4);toast('🆘','Demo: high-distress flow','Set anxiety 9-10 and save to see the safety flow.','#FDF0EE')},350)}
+  else if(k==='booking'){go('support');setTimeout(()=>startBooking(),350)}
+}
+
+/* ============================ INIT ============================ */
+function tick(){const d=new Date();document.getElementById('clock').textContent=(d.getHours()%12||12)+':'+String(d.getMinutes()).padStart(2,'0')}
+setInterval(tick,10000);tick();
+islandRender();
+renderFlow();
+/* welcome + ambient reminder */
+setTimeout(()=>{if(S.flow==='app')toast('👋',userName()?'Welcome back, '+userName():'Welcome back','You can pick up wherever feels right.','#E9F3ED')},1200);
+setTimeout(()=>{if(S.privacy.notifs&&!S.checkIns.some(c=>c.date===todayStr()))simulateReminder()},26000);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSheet();closeModal()}});
+
 </script>
-<!--@@JS6@@-->
+</body>
+</html>
